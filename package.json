@@ -1,5 +1,5 @@
 {
-  "name": "three-template",
+  "name": "elevation-graph-3d",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -25,6 +25,7 @@
     "webpack-dev-server": "^4.11.1"
   },
   "dependencies": {
+    "geotiff": "^2.0.7",
     "three": "^0.150.1"
   }
 }
