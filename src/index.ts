@@ -7,66 +7,62 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
 import { GeoTIFFImage, fromUrl, ReadRasterResult } from "geotiff";
+import fastMax from "fast-max";
 
 const url = "https://image-cog.s3.ap-northeast-1.amazonaws.com/cog-dem10b.tif";
 const UP_VECTOR = new THREE.Vector3(0, 1, 0);
+const NON_VALUE = -9999;
 
-export const initMoonDEMData = async () => {
+const getRasterDataByBBox = async (): Promise<ReadRasterResult> => {
   const tiff = await fromUrl(url);
 
   const imageData = await tiff.readRasters(<any>{
     bbox: [139.5, 35.5, 140, 36], // lng1,lat1,lng2,lat2
-    resX: 0.001,
-    resY: 0.001,
+    resX: 0.01,
+    resY: 0.01,
   });
 
-  const buffer = imageData[0];
+  return imageData;
+};
 
-  console.log(buffer);
-
-  console.log(imageData.height);
-  console.log(imageData.width);
-
-  // for (let i = 0; i < imageData.height; i++) {
-  //   for (let j = 0; j < imageData.width; j++) {
-  //     const index = i * imageData.height + j;
-  //     buffer[index];
-  //     // console.log(index);
-  //   }
-  // }
+const createGraphGeometryByReadRasterResult = (result: ReadRasterResult) => {
+  const buffer = result[0];
 
   const vertexes = [];
   const indexes = [];
 
-  for (let y = 0; y < imageData.height; y++) {
-    for (let x = 0; x < imageData.width; x++) {
-      const index = x + y * imageData.height;
-      const percentY = y / imageData.height;
-      const percentX = x / imageData.width;
+  const height = result.height;
+  const width = result.width;
 
-      const localUp = new THREE.Vector3().copy(UP_VECTOR);
+  const max = fastMax(buffer as any);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = x + y * width;
+      const percentY = y / (height - 1);
+      const percentX = x / (width - 1);
+
+      const demHeight = NON_VALUE !== buffer[index] ? buffer[index] / max : 0;
 
       const pointOnPlane = new THREE.Vector3(
         (percentX - 0.5) * 2,
-        0,
+        demHeight,
         (percentY - 0.5) * 2
       );
 
       vertexes.push(pointOnPlane);
 
-      if (x !== imageData.width - 1 && y !== imageData.height - 1) {
+      if (x !== width - 1 && y !== height - 1) {
         indexes.push(index);
-        indexes.push(index + imageData.width + 1);
-        indexes.push(index + imageData.width);
+        indexes.push(index + width + 1);
+        indexes.push(index + width);
 
         indexes.push(index);
         indexes.push(index + 1);
-        indexes.push(index + imageData.width + 1);
+        indexes.push(index + width + 1);
       }
     }
   }
-
-  console.log(vertexes);
 
   const _vertices: number[] = [];
   vertexes.forEach((vector) => {
@@ -91,7 +87,10 @@ export const initMoonDEMData = async () => {
   return geometry;
 };
 
-const createGraphGeometryByReadRasterResult = (result: ReadRasterResult) => {};
+const createGraphGeometryByBBox = async () => {
+  const result = await getRasterDataByBBox();
+  return createGraphGeometryByReadRasterResult(result);
+};
 
 const main = async () => {
   const sizes = {
@@ -116,9 +115,7 @@ const main = async () => {
   const scene = new THREE.Scene();
   addOriginArrowToScene(scene);
 
-  const geometry = await initMoonDEMData();
-
-  console.log(geometry);
+  const geometry = await createGraphGeometryByBBox();
 
   const material = new THREE.ShaderMaterial({
     uniforms: {

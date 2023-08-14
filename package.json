@@ -25,6 +25,7 @@
     "webpack-dev-server": "^4.11.1"
   },
   "dependencies": {
+    "fast-max": "^0.4.0",
     "geotiff": "^2.0.7",
     "three": "^0.150.1"
   }
